@@ -1,0 +1,38 @@
+{
+  "name": "raydium-test",
+  "version": "1.0.0",
+  "main": "index.js",
+  "license": "MIT",
+  "dependencies": {
+    "@solana/wallet-adapter-base": "^0.9.5",
+    "@solana/wallet-adapter-react": "^0.15.5",
+    "@solana/wallet-adapter-react-ui": "^0.9.7",
+    "@solana/wallet-adapter-wallets": "^0.16.1",
+    "@solana/web3.js": "^1.43.0",
+    "core-js": "^3.22.5",
+    "raf": "^3.4.1",
+    "react": "^18.1.0",
+    "react-dom": "^18.1.0",
+    "whatwg-fetch": "^3.6.2"
+  },
+  "devDependencies": {
+    "@types/react-dom": "^18.0.4",
+    "crypto-browserify": "^3.12.0",
+    "css-loader": "^6.7.1",
+    "html-webpack-plugin": "^5.5.0",
+    "mini-css-extract-plugin": "^2.6.0",
+    "stream-browserify": "^3.0.0",
+    "ts-loader": "^9.3.0",
+    "typescript": "^4.6.4",
+    "webpack": "^5.72.1",
+    "webpack-cli": "^4.9.2",
+    "webpack-dev-server": "^4.9.0"
+  },
+  "scripts": {
+    "start": "webpack serve --port 3000",
+    "build": "NODE_ENV=production webpack"
+  },
+  "eslintConfig": {
+    "extends": "react-app"
+  }
+}
