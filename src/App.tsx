@@ -3,23 +3,22 @@ import { ConnectionProvider, WalletProvider } from '@solana/wallet-adapter-react
 import { WalletAdapterNetwork } from '@solana/wallet-adapter-base';
 import {
     GlowWalletAdapter,
-    LedgerWalletAdapter,
     PhantomWalletAdapter,
     SlopeWalletAdapter,
     SolflareWalletAdapter,
-    SolletExtensionWalletAdapter,
-    SolletWalletAdapter,
     TorusWalletAdapter,
 } from '@solana/wallet-adapter-wallets';
 import {
     WalletModalProvider,
-    WalletDisconnectButton,
     WalletMultiButton
 } from '@solana/wallet-adapter-react-ui';
 import { clusterApiUrl } from '@solana/web3.js';
 
+import Main from './components/Main';
+
 // Default styles that can be overridden by your app
 require('@solana/wallet-adapter-react-ui/styles.css');
+
 
 const App: FC = () => {
     // The network can be set to 'devnet', 'testnet', or 'mainnet-beta'.
@@ -46,9 +45,13 @@ const App: FC = () => {
         <ConnectionProvider endpoint={endpoint}>
             <WalletProvider wallets={wallets} autoConnect>
                 <WalletModalProvider>
-                    <WalletMultiButton />
-                    {/* <WalletDisconnectButton /> */}
-                    { /* Your app's components go here, nested within the context providers. */}
+                    <div className="vh-100">
+                        <nav className="d-flex justify-content-between align-items-center p-2 bg-dark">
+                            <span className="text-white fs-3 fw-bold">Raydium Test</span>
+                            <WalletMultiButton />
+                        </nav >
+                        <Main />
+                    </div>
                 </WalletModalProvider>
             </WalletProvider>
         </ConnectionProvider>
