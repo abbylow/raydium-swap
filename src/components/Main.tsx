@@ -1,22 +1,47 @@
-import React, { useState, ChangeEvent, MouseEvent, MouseEventHandler, useEffect } from 'react';
+import React, {
+  FC,
+  useState,
+  ChangeEvent,
+  MouseEvent,
+  MouseEventHandler,
+  useEffect
+} from 'react';
+// import { getAssociatedTokenAddress, getAccount, TokenAccountNotFoundError } from "@solana/spl-token"
+import { useConnection, useWallet } from '@solana/wallet-adapter-react';
+import { Transaction, PublicKey, LAMPORTS_PER_SOL } from '@solana/web3.js'
 
-const SOL_IMG = 'https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/So11111111111111111111111111111111111111112/logo.png';
-const RAY_IMG = 'https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R/logo.png';
+import { SOL_IMG, RAY_IMG, RAY_DEVNET_ADDRESS } from '../constant';
 
-type MainProps = {
-  rayBalance: string,
-  solBalance: string,
-  buyTokens: (etherAmount: number) => void,
-  exchangeRate: string
-}
 
-const Main = (props: any) => {
-  const {
-    // rayBalance,
-    // solBalance,
-    // buyTokens,
-    // exchangeRate
-  } = props;
+const Main: FC = () => {
+
+  const { publicKey } = useWallet();
+  const { connection } = useConnection();
+
+  // // not sure about the mint address for RAY
+  // const mint = new PublicKey(RAY_DEVNET_ADDRESS);
+
+  const [solBalance, setSolBalance] = useState(0);
+  // const [rayBalance, setRayBalance] = useState(0);
+
+  useEffect(() => {
+    const getBalance = async () => {
+      if (publicKey !== null) {
+        const balance = await connection.getBalance(publicKey);
+        setSolBalance(balance / LAMPORTS_PER_SOL);
+
+        // const accounts = await connection.getTokenAccountsByOwner(publicKey, { mint });s
+        // if (accounts?.value?.length > 0) {
+        //   const rayAcc = accounts.value[0]; // assume the first account is ray
+        //   const rayBalance = await connection.getTokenAccountBalance(rayAcc.pubkey);
+        //   setRayBalance(+rayBalance / LAMPORTS_PER_SOL);
+        // }
+      }
+    };
+
+    getBalance();
+
+  }, [publicKey, connection]);
 
   const [input, setInput] = useState('0');
   const [output, setOutput] = useState('0');
@@ -31,9 +56,6 @@ const Main = (props: any) => {
     console.log('swap');
   }
 
-  useEffect(() => {
-    console.log('main')
-  }, []);
 
   return (
     <div className="d-flex justify-content-center mx-3">
@@ -47,8 +69,7 @@ const Main = (props: any) => {
                     <b>Input</b>
                   </label>
                   <span className="float-end text-muted">
-                    {/* {`Balance: ${solBalance}`} */}
-                    sol balance
+                    {`Balance: ${solBalance}`}
                   </span>
                 </div>
                 <div className="input-group mb-4">
@@ -60,7 +81,7 @@ const Main = (props: any) => {
                   />
 
                   <div className="input-group-text">
-                    <img className="mr-2" src={SOL_IMG} height='32' alt="SOL" />
+                    <img className="mx-2" src={SOL_IMG} height='32' alt="SOL" />
                     SOL
                   </div>
 
@@ -69,7 +90,6 @@ const Main = (props: any) => {
                   <label className="float-start"><b>Output</b></label>
                   <span className="float-end text-muted">
                     {/* {`Balance: ${rayBalance}`} */}
-                    ray balance
                   </span>
                 </div>
                 <div className="input-group mb-2">
@@ -81,7 +101,7 @@ const Main = (props: any) => {
                   />
 
                   <div className="input-group-text">
-                    <img className="mr-2" src={RAY_IMG} height='32' alt="RAY" />
+                    <img className="mx-2" src={RAY_IMG} height='32' alt="RAY" />
                     RAY
                   </div>
 
