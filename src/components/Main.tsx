@@ -6,20 +6,23 @@ import React, {
   MouseEventHandler,
   useEffect
 } from 'react';
-// import { getAssociatedTokenAddress, getAccount, TokenAccountNotFoundError } from "@solana/spl-token"
 import { useConnection, useWallet } from '@solana/wallet-adapter-react';
-import { Transaction, PublicKey, LAMPORTS_PER_SOL } from '@solana/web3.js'
+import { LAMPORTS_PER_SOL } from '@solana/web3.js'
+// import { TOKEN_PROGRAM_ID } from "@solana/spl-token";
+import { 
+  Liquidity,  Market,
+  GetMultipleAccountsInfoConfig, 
+  LiquidityPoolKeys,
+  LiquidityStateLayout, LiquidityAssociatedPoolKeys, getMultipleAccountsInfo, 
+  LIQUIDITY_STATE_LAYOUT_V4, findProgramAddress 
+} from "@raydium-io/raydium-sdk";
 
-import { SOL_IMG, RAY_IMG, RAY_DEVNET_ADDRESS } from '../constant';
-
+import { SOL_IMG, RAY_IMG } from '../constant';
 
 const Main: FC = () => {
-
+console.log(Market)
   const { publicKey } = useWallet();
   const { connection } = useConnection();
-
-  // // not sure about the mint address for RAY
-  // const mint = new PublicKey(RAY_DEVNET_ADDRESS);
 
   const [solBalance, setSolBalance] = useState(0);
   // const [rayBalance, setRayBalance] = useState(0);
@@ -30,11 +33,22 @@ const Main: FC = () => {
         const balance = await connection.getBalance(publicKey);
         setSolBalance(balance / LAMPORTS_PER_SOL);
 
-        // const accounts = await connection.getTokenAccountsByOwner(publicKey, { mint });s
-        // if (accounts?.value?.length > 0) {
-        //   const rayAcc = accounts.value[0]; // assume the first account is ray
-        //   const rayBalance = await connection.getTokenAccountBalance(rayAcc.pubkey);
-        //   setRayBalance(+rayBalance / LAMPORTS_PER_SOL);
+        // get ray balance
+        // const tokenResp = await connection.getTokenAccountsByOwner(publicKey, { programId: TOKEN_PROGRAM_ID });
+        
+        // for (const { pubkey, account } of tokenResp.value) {
+        //   const rawResult = SPL_ACCOUNT_LAYOUT.decode(account.data);
+        //   const { mint, amount } = rawResult;
+        //   const associatedTokenAddress = await Spl.getAssociatedTokenAccount({ mint, owner })
+
+        //   accounts.push({
+        //     publicKey: pubkey,
+        //     mint,
+        //     isAssociated: associatedTokenAddress.equals(pubkey),
+        //     amount,
+        //     isNative: false
+        //   })
+        //   rawInfos.push({ pubkey, accountInfo: rawResult })
         // }
       }
     };
@@ -56,7 +70,6 @@ const Main: FC = () => {
     console.log('swap');
   }
 
-
   return (
     <div className="d-flex justify-content-center mx-3">
       <main role="main" className="col-lg-12 mx-auto" style={{ maxWidth: '600px' }} >
@@ -69,7 +82,7 @@ const Main: FC = () => {
                     <b>Input</b>
                   </label>
                   <span className="float-end text-muted">
-                    {`Balance: ${solBalance}`}
+                    {`Balance: ${solBalance.toFixed(5)} SOL`}
                   </span>
                 </div>
                 <div className="input-group mb-4">
@@ -88,9 +101,9 @@ const Main: FC = () => {
                 </div>
                 <div>
                   <label className="float-start"><b>Output</b></label>
-                  <span className="float-end text-muted">
-                    {/* {`Balance: ${rayBalance}`} */}
-                  </span>
+                  {/* <span className="float-end text-muted"> */}
+                  {/* {`Balance: ${rayBalance.toFixed(5)}`} RAY*/}
+                  {/* </span> */}
                 </div>
                 <div className="input-group mb-2">
                   <input
