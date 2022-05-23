@@ -49,6 +49,7 @@ export async function calcAmountOut(connection: Connection, poolKeys: LiquidityP
 
     // console.log('calcAmountOut:: amountOut.toFixed(), executionPrice?.toFixed()', amountOut.toFixed(), executionPrice?.toFixed())
     return {
+        amountIn,
         amountOut,
         minAmountOut,
         currentPrice,
@@ -58,10 +59,10 @@ export async function calcAmountOut(connection: Connection, poolKeys: LiquidityP
     };
 }
 
-
 export async function swap(connection: Connection, poolKeys: LiquidityPoolKeys, ownerPublicKey: PublicKey, tokenAccounts: TokenAccount[], rawAmountIn: number){
     console.log('swap:: start');
     const {
+        amountIn,
         amountOut,
         minAmountOut,
         currentPrice,
@@ -71,48 +72,20 @@ export async function swap(connection: Connection, poolKeys: LiquidityPoolKeys, 
     } = await calcAmountOut(connection, poolKeys, rawAmountIn);
     console.log('swap:: after calcAmountOut ', amountOut.toFixed(), executionPrice?.toFixed());
 
-// //   const owner = ownerKeypair.publicKey
-//   const poolInfo = await Liquidity.fetchInfo({connection, poolKeys})
-//   console.log('swap:: poolInfo', poolInfo)
+  const {transaction, signers} = await Liquidity.makeSwapTransaction({
+      connection,
+      poolKeys,
+      userKeys: {
+          tokenAccounts,
+          owner: ownerPublicKey,
+      },
+      amountIn,
+      amountOut: minAmountOut,
+      fixedSide: "in" //TODO: to test
+  });
 
-// //   due to the pool is RAY-SOL, we switch the base and quote symbol to get SOL to RAY
-//   const currencyIn = new Token(poolKeys.quoteMint, poolInfo.quoteDecimals)
-//   console.log('swap:: currencyIn ', currencyIn)
-//   // real amount = 1000000 / 10**poolInfo.baseDecimals
-//   const amountIn = new TokenAmount(currencyIn, rawAmountIn, false)
-  
-//   const currencyOut = new Token(poolKeys.baseMint, poolInfo.baseDecimals);
-//   console.log('swap:: currencyOut ', currencyOut);
-
-//   // 5% slippage
-//   const slippage = new Percent(5, 100)
-//   console.log('swap:: slippage ', slippage);
-
-//   const {
-//     amountOut,
-//     minAmountOut,
-//     currentPrice,
-//     executionPrice,
-//     priceImpact,
-//     fee,
-//   } = Liquidity.computeAmountOut({ poolKeys, poolInfo, amountIn, currencyOut, slippage, })
-
-
-//   // @ts-ignore
-//   console.log(`swap:: ${poolKeys.id.toBase58()}, amountIn: ${amountIn.toFixed()}, amountOut: ${amountOut.toFixed()}, executionPrice: ${executionPrice.toFixed()}`,)
-
-//   uncomment below
-//   const {transaction, signers} = await Liquidity.makeSwapTransaction({
-//       connection,
-//       poolKeys,
-//       userKeys: {
-//           tokenAccounts,
-//           owner: ownerPublicKey,
-//       },
-//       amountIn,
-//       amountOut: minAmountOut,
-//       fixedSide: "in"
-//   })
+  console.log('transaction ', transaction);
+  console.log('signers ', signers);
 
 //   const txid = await connection.sendTransaction(
 //       transaction, 

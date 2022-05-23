@@ -36,7 +36,7 @@ import {
 } from '../constant';
 
 const Main: FC = () => {
-  const { publicKey } = useWallet();
+  const { publicKey, sendTransaction, signTransaction } = useWallet();
   const { connection } = useConnection();
 
   const [solBalance, setSolBalance] = useState<number>(0);
@@ -56,6 +56,8 @@ const Main: FC = () => {
         // get all token accounts
         const tokenAccs = await getTokenAccountsByOwner(connection, publicKey as PublicKey);
         setTokenAccounts(tokenAccs);
+console.log('tokenAccs ', tokenAccs)
+        
         // console.log('getAccountInfo:: tokenAccounts => ', tokenAccounts)
       }
     };
@@ -90,23 +92,56 @@ const Main: FC = () => {
   const [input, setInput] = useState('0');
   const [output, setOutput] = useState('0');
 
-  const handleChange = async (e: ChangeEvent<HTMLInputElement>) => {
-    // console.log('handleChange:: setInput => ', e.target.value);
-    setInput(e.target.value);
+  useEffect(() => {
     if (exchangeRate) {
-      const inputNum: number = parseFloat(e.target.value);
+      const inputNum: number = parseFloat(input);
       const calculatedOutput: number = inputNum * parseFloat(exchangeRate);
       const processedOutput: string = isNaN(calculatedOutput) ? '0' : String(calculatedOutput);
       setOutput(processedOutput);
     }
+  }, [exchangeRate, input]);
+
+
+  const handleChange = async (e: ChangeEvent<HTMLInputElement>) => {
+    // console.log('handleChange:: setInput => ', e.target.value);
+    setInput(e.target.value);
   };
 
   const handleSwap: MouseEventHandler<HTMLButtonElement> = async () => {
     console.log('handleSwap:: start ')
     const inputNumber = parseFloat(input);
     if (raySolPoolKey && publicKey) {
-      await swap(connection, raySolPoolKey, publicKey, tokenAccounts, inputNumber);
-      // TODO: replace sendTransaction https://solana-labs.github.io/wallet-adapter/interfaces/_solana_wallet_adapter_react.WalletContextState.html#signTransaction
+      console.log('handleSwap swap:: start');
+      try {
+        const {
+          amountIn,
+          amountOut,
+          minAmountOut,
+          executionPrice,
+        } = await calcAmountOut(connection, raySolPoolKey, inputNumber);
+        console.log('handleSwap swap:: after calcAmountOut ', amountIn.toFixed(), amountOut.toFixed(), executionPrice?.toFixed());
+  
+        const { transaction, signers } = await Liquidity.makeSwapTransaction({
+          connection,
+          poolKeys: raySolPoolKey,
+          userKeys: {
+            tokenAccounts,
+            owner: publicKey,
+          },
+          amountIn,
+          amountOut: minAmountOut,
+          fixedSide: "in"
+        });
+  
+        const txid = await sendTransaction(transaction, connection
+          // , { signers, skipPreflight: true }
+          );
+        console.log('txid ', txid);  
+        console.log(`https://solscan.io/tx/${txid}`)
+      } catch (err) {
+        // TODO: show error message
+        console.error('tx failed => ', err);
+      }
     }
   }
 
