@@ -2,33 +2,20 @@ import React, {
   FC,
   useState,
   ChangeEvent,
-  MouseEvent,
   MouseEventHandler,
   useEffect
 } from 'react';
-import { Spinner } from 'react-bootstrap';
 import { useConnection, useWallet } from '@solana/wallet-adapter-react';
-import { LAMPORTS_PER_SOL, PublicKey, Keypair } from '@solana/web3.js'
-import { TOKEN_PROGRAM_ID } from "@solana/spl-token";
+import { LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js'
 import {
-  Liquidity, Market,
-  GetMultipleAccountsInfoConfig,
+  Liquidity, 
   LiquidityPoolKeys,
-  LiquidityStateLayout, LiquidityAssociatedPoolKeys, getMultipleAccountsInfo,
-  LIQUIDITY_STATE_LAYOUT_V4, findProgramAddress,
   jsonInfo2PoolKeys,
   LiquidityPoolJsonInfo,
-  Trade,
   TokenAccount,
 } from "@raydium-io/raydium-sdk";
-
-
-import { toPercent } from '../utils/format/toPercent';
-import { swap, calcAmountOut } from '../utils/swap';
-import { fetchPoolKeys } from '../utils/swap/util_mainnet';
-import { getTokenAccountsByOwner } from '../utils';
 import AlertDismissable from './AlertDismissable';
-// import { deUIToken, deUITokenAmount } from '../utils/token/quantumSOL';
+import { getTokenAccountsByOwner, calcAmountOut } from '../utils';
 import {
   SOL_IMG,
   RAY_IMG,
