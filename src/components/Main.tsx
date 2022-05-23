@@ -7,67 +7,107 @@ import React, {
   useEffect
 } from 'react';
 import { useConnection, useWallet } from '@solana/wallet-adapter-react';
-import { LAMPORTS_PER_SOL } from '@solana/web3.js'
-// import { TOKEN_PROGRAM_ID } from "@solana/spl-token";
-import { 
-  Liquidity,  Market,
-  GetMultipleAccountsInfoConfig, 
+import { LAMPORTS_PER_SOL, PublicKey, Keypair } from '@solana/web3.js'
+import { TOKEN_PROGRAM_ID } from "@solana/spl-token";
+import {
+  Liquidity, Market,
+  GetMultipleAccountsInfoConfig,
   LiquidityPoolKeys,
-  LiquidityStateLayout, LiquidityAssociatedPoolKeys, getMultipleAccountsInfo, 
-  LIQUIDITY_STATE_LAYOUT_V4, findProgramAddress 
+  LiquidityStateLayout, LiquidityAssociatedPoolKeys, getMultipleAccountsInfo,
+  LIQUIDITY_STATE_LAYOUT_V4, findProgramAddress,
+  jsonInfo2PoolKeys,
+  LiquidityPoolJsonInfo,
+  Trade,
+  TokenAccount,
 } from "@raydium-io/raydium-sdk";
+import debounce from 'lodash.debounce';
 
-import { SOL_IMG, RAY_IMG } from '../constant';
+import { toPercent } from '../utils/format/toPercent';
+import { swap, calcAmountOut } from '../utils/swap';
+import { fetchPoolKeys } from '../utils/swap/util_mainnet';
+import { getTokenAccountsByOwner } from '../utils';
+
+// import { deUIToken, deUITokenAmount } from '../utils/token/quantumSOL';
+import {
+  SOL_IMG,
+  RAY_IMG,
+  RAY_SOL_LP_V4_POOL_KEY,
+  RAYDIUM_LIQUIDITY_JSON
+} from '../constant';
 
 const Main: FC = () => {
-console.log(Market)
   const { publicKey } = useWallet();
   const { connection } = useConnection();
 
-  const [solBalance, setSolBalance] = useState(0);
-  // const [rayBalance, setRayBalance] = useState(0);
+  const [solBalance, setSolBalance] = useState<number>(0);
+  const [exchangeRate, setExchangeRate] = useState<string>('');
+
+  const [raySolPoolKey, setRaySolPoolKey] = useState<LiquidityPoolKeys>();
+  const [tokenAccounts, setTokenAccounts] = useState<TokenAccount[]>([]);
 
   useEffect(() => {
-    const getBalance = async () => {
+    const getAccountInfo = async () => {
       if (publicKey !== null) {
+        // console.log('getAccountInfo:: start ');
+        // get SOL balance
         const balance = await connection.getBalance(publicKey);
         setSolBalance(balance / LAMPORTS_PER_SOL);
-
-        // get ray balance
-        // const tokenResp = await connection.getTokenAccountsByOwner(publicKey, { programId: TOKEN_PROGRAM_ID });
-        
-        // for (const { pubkey, account } of tokenResp.value) {
-        //   const rawResult = SPL_ACCOUNT_LAYOUT.decode(account.data);
-        //   const { mint, amount } = rawResult;
-        //   const associatedTokenAddress = await Spl.getAssociatedTokenAccount({ mint, owner })
-
-        //   accounts.push({
-        //     publicKey: pubkey,
-        //     mint,
-        //     isAssociated: associatedTokenAddress.equals(pubkey),
-        //     amount,
-        //     isNative: false
-        //   })
-        //   rawInfos.push({ pubkey, accountInfo: rawResult })
-        // }
+        // console.log('getAccountInfo:: balance => ', balance / LAMPORTS_PER_SOL)
+        // get all token accounts
+        const tokenAccs = await getTokenAccountsByOwner(connection, publicKey as PublicKey);
+        setTokenAccounts(tokenAccs);
+        // console.log('getAccountInfo:: tokenAccounts => ', tokenAccounts)
       }
     };
-
-    getBalance();
-
+    const getPoolInfo = async () => {
+      // console.log('getPoolInfo:: start ');
+      const liquidityJsonResp = await fetch(RAYDIUM_LIQUIDITY_JSON);
+      if (!(await liquidityJsonResp).ok) return []
+      const liquidityJson = await liquidityJsonResp.json();
+      const allPoolKeysJson = [...(liquidityJson?.official ?? []), ...(liquidityJson?.unOfficial ?? [])]
+      const poolKeysRaySolJson: LiquidityPoolJsonInfo = allPoolKeysJson.filter((item) => item.lpMint === RAY_SOL_LP_V4_POOL_KEY)?.[0] || null;
+      const raySolPk = jsonInfo2PoolKeys(poolKeysRaySolJson);
+      setRaySolPoolKey(raySolPk);
+      // console.log('getPoolInfo:: raySolPoolKey => ', raySolPoolKey)
+    }
+    getAccountInfo();
+    getPoolInfo();
   }, [publicKey, connection]);
+
+  useEffect(() => {
+    const getInitialRate = async () => {
+      // console.log('getInitialRate:: start ', raySolPoolKey, publicKey);
+      if (raySolPoolKey && publicKey) {
+        const { executionPrice } = await calcAmountOut(connection, raySolPoolKey, 1);
+        const rate = executionPrice?.toFixed() || '0';
+        // console.log('getInitialRate:: amountOut, executionPrice ', executionRate);
+        setExchangeRate(rate);
+      }
+    }
+    getInitialRate();
+  }, [publicKey, raySolPoolKey]);
 
   const [input, setInput] = useState('0');
   const [output, setOutput] = useState('0');
 
-  const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
+  const handleChange = async (e: ChangeEvent<HTMLInputElement>) => {
+    // console.log('handleChange:: setInput => ', e.target.value);
     setInput(e.target.value);
-    // TODO: calculate the estimated output using input and exchangeRate
+    if (exchangeRate) {
+      const inputNum: number = parseFloat(e.target.value);
+      const calculatedOutput: number = inputNum * parseFloat(exchangeRate);
+      const processedOutput: string = isNaN(calculatedOutput) ? '0' : String(calculatedOutput);
+      setOutput(processedOutput);
+    }
+  };
 
-  }
-
-  const handleSwap: MouseEventHandler<HTMLButtonElement> = (e) => {
-    console.log('swap');
+  const handleSwap: MouseEventHandler<HTMLButtonElement> = async () => {
+    console.log('handleSwap:: start ')
+    const inputNumber = parseFloat(input);
+    if (raySolPoolKey && publicKey) {
+      await swap(connection, raySolPoolKey, publicKey, tokenAccounts, inputNumber);
+      // TODO: replace sendTransaction https://solana-labs.github.io/wallet-adapter/interfaces/_solana_wallet_adapter_react.WalletContextState.html#signTransaction
+    }
   }
 
   return (
@@ -100,7 +140,7 @@ console.log(Market)
 
                 </div>
                 <div>
-                  <label className="float-start"><b>Output</b></label>
+                  <label className="float-start"><b>Estimated Output</b></label>
                   {/* <span className="float-end text-muted"> */}
                   {/* {`Balance: ${rayBalance.toFixed(5)}`} RAY*/}
                   {/* </span> */}
@@ -120,10 +160,10 @@ console.log(Market)
 
                 </div>
                 <div className="mb-5">
-                  <span className="float-start text-muted">Exchange Rate</span>
+                  <span className="float-start text-muted">Exchange Rate (not real time)</span>
                   <span className="float-end text-muted">
                     {/* TODO: get exchange rate and display here */}
-                    exchange rate
+                    {`1 SOL = ${exchangeRate} RAY`}
                   </span>
                 </div>
                 <div className="d-grid gap-2">
@@ -131,6 +171,7 @@ console.log(Market)
                     className="btn btn-primary btn-lg"
                     type="button"
                     onClick={handleSwap}
+                    disabled={!publicKey || !raySolPoolKey || parseFloat(input) < 0 || parseFloat(input) > solBalance}
                   >
                     SWAP
                   </button>
