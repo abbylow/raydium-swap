@@ -6,6 +6,7 @@ import React, {
   MouseEventHandler,
   useEffect
 } from 'react';
+import { Spinner } from 'react-bootstrap';
 import { useConnection, useWallet } from '@solana/wallet-adapter-react';
 import { LAMPORTS_PER_SOL, PublicKey, Keypair } from '@solana/web3.js'
 import { TOKEN_PROGRAM_ID } from "@solana/spl-token";
@@ -20,13 +21,13 @@ import {
   Trade,
   TokenAccount,
 } from "@raydium-io/raydium-sdk";
-import debounce from 'lodash.debounce';
+
 
 import { toPercent } from '../utils/format/toPercent';
 import { swap, calcAmountOut } from '../utils/swap';
 import { fetchPoolKeys } from '../utils/swap/util_mainnet';
 import { getTokenAccountsByOwner } from '../utils';
-
+import AlertDismissable from './AlertDismissable';
 // import { deUIToken, deUITokenAmount } from '../utils/token/quantumSOL';
 import {
   SOL_IMG,
@@ -45,24 +46,25 @@ const Main: FC = () => {
   const [raySolPoolKey, setRaySolPoolKey] = useState<LiquidityPoolKeys>();
   const [tokenAccounts, setTokenAccounts] = useState<TokenAccount[]>([]);
 
+  const [alertHeading, setAlertHeading] = useState<string>('');
+  const [alertContent, setAlertContent] = useState<string>('');
+  const [alertType, setAlertType] = useState<string>('danger');
+  const [alertShow, setAlertShow] = useState<boolean>(false);
+
+  const [input, setInput] = useState('0');
+  const [output, setOutput] = useState('0');
+
   useEffect(() => {
     const getAccountInfo = async () => {
       if (publicKey !== null) {
-        // console.log('getAccountInfo:: start ');
-        // get SOL balance
-        const balance = await connection.getBalance(publicKey);
+        const balance = await connection.getBalance(publicKey); // get SOL balance
         setSolBalance(balance / LAMPORTS_PER_SOL);
-        // console.log('getAccountInfo:: balance => ', balance / LAMPORTS_PER_SOL)
-        // get all token accounts
-        const tokenAccs = await getTokenAccountsByOwner(connection, publicKey as PublicKey);
+
+        const tokenAccs = await getTokenAccountsByOwner(connection, publicKey as PublicKey); // get all token accounts
         setTokenAccounts(tokenAccs);
-console.log('tokenAccs ', tokenAccs)
-        
-        // console.log('getAccountInfo:: tokenAccounts => ', tokenAccounts)
       }
     };
     const getPoolInfo = async () => {
-      // console.log('getPoolInfo:: start ');
       const liquidityJsonResp = await fetch(RAYDIUM_LIQUIDITY_JSON);
       if (!(await liquidityJsonResp).ok) return []
       const liquidityJson = await liquidityJsonResp.json();
@@ -70,7 +72,6 @@ console.log('tokenAccs ', tokenAccs)
       const poolKeysRaySolJson: LiquidityPoolJsonInfo = allPoolKeysJson.filter((item) => item.lpMint === RAY_SOL_LP_V4_POOL_KEY)?.[0] || null;
       const raySolPk = jsonInfo2PoolKeys(poolKeysRaySolJson);
       setRaySolPoolKey(raySolPk);
-      // console.log('getPoolInfo:: raySolPoolKey => ', raySolPoolKey)
     }
     getAccountInfo();
     getPoolInfo();
@@ -78,21 +79,17 @@ console.log('tokenAccs ', tokenAccs)
 
   useEffect(() => {
     const getInitialRate = async () => {
-      // console.log('getInitialRate:: start ', raySolPoolKey, publicKey);
       if (raySolPoolKey && publicKey) {
         const { executionPrice } = await calcAmountOut(connection, raySolPoolKey, 1);
         const rate = executionPrice?.toFixed() || '0';
-        // console.log('getInitialRate:: amountOut, executionPrice ', executionRate);
         setExchangeRate(rate);
       }
     }
     getInitialRate();
   }, [publicKey, raySolPoolKey]);
 
-  const [input, setInput] = useState('0');
-  const [output, setOutput] = useState('0');
-
   useEffect(() => {
+    // update estimated output
     if (exchangeRate) {
       const inputNum: number = parseFloat(input);
       const calculatedOutput: number = inputNum * parseFloat(exchangeRate);
@@ -101,26 +98,16 @@ console.log('tokenAccs ', tokenAccs)
     }
   }, [exchangeRate, input]);
 
-
   const handleChange = async (e: ChangeEvent<HTMLInputElement>) => {
-    // console.log('handleChange:: setInput => ', e.target.value);
     setInput(e.target.value);
   };
 
   const handleSwap: MouseEventHandler<HTMLButtonElement> = async () => {
-    console.log('handleSwap:: start ')
     const inputNumber = parseFloat(input);
     if (raySolPoolKey && publicKey) {
-      console.log('handleSwap swap:: start');
       try {
-        const {
-          amountIn,
-          amountOut,
-          minAmountOut,
-          executionPrice,
-        } = await calcAmountOut(connection, raySolPoolKey, inputNumber);
-        console.log('handleSwap swap:: after calcAmountOut ', amountIn.toFixed(), amountOut.toFixed(), executionPrice?.toFixed());
-  
+        const { amountIn, minAmountOut } = await calcAmountOut(connection, raySolPoolKey, inputNumber);
+
         const { transaction, signers } = await Liquidity.makeSwapTransaction({
           connection,
           poolKeys: raySolPoolKey,
@@ -132,15 +119,22 @@ console.log('tokenAccs ', tokenAccs)
           amountOut: minAmountOut,
           fixedSide: "in"
         });
-  
-        const txid = await sendTransaction(transaction, connection
-          // , { signers, skipPreflight: true }
-          );
-        console.log('txid ', txid);  
-        console.log(`https://solscan.io/tx/${txid}`)
-      } catch (err) {
-        // TODO: show error message
+        const txid = await sendTransaction(transaction, connection, { signers, skipPreflight: true });
+
+        setAlertHeading('Transaction sent');
+        setAlertContent(`Check it at https://solscan.io/tx/${txid}`);
+        setAlertType('success');
+        setAlertShow(true);
+      } catch (err: any) {
         console.error('tx failed => ', err);
+        setAlertHeading('Something went wrong');
+        if (err?.code && err?.message) {
+          setAlertContent(`${err.code}: ${err.message}`)
+        } else {
+          setAlertContent(JSON.stringify(err));
+        }
+        setAlertType('danger');
+        setAlertShow(true);
       }
     }
   }
@@ -197,7 +191,6 @@ console.log('tokenAccs ', tokenAccs)
                 <div className="mb-5">
                   <span className="float-start text-muted">Exchange Rate (not real time)</span>
                   <span className="float-end text-muted">
-                    {/* TODO: get exchange rate and display here */}
                     {`1 SOL = ${exchangeRate} RAY`}
                   </span>
                 </div>
@@ -214,6 +207,14 @@ console.log('tokenAccs ', tokenAccs)
               </form>
             </div>
           </div>
+
+          <AlertDismissable
+            heading={alertHeading}
+            content={alertContent}
+            type={alertType}
+            show={alertShow}
+            setShow={setAlertShow}
+          />
         </div>
       </main >
     </div >
