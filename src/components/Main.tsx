@@ -195,7 +195,7 @@ const Main: FC = () => {
 
                   <div className="input-group-text">
                     <img className="mx-2" src={!swapInDirection ? RAY_IMG : SOL_IMG} height='32' alt='tokenOut' />
-                    RAY
+                    {!swapInDirection ? 'RAY' : 'SOL'}
                   </div>
 
                 </div>
