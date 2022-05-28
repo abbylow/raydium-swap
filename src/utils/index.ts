@@ -26,13 +26,29 @@ export async function getTokenAccountsByOwner(
   return accounts;
 }
 
-
-export async function calcAmountOut(connection: Connection, poolKeys: LiquidityPoolKeys, rawAmountIn: number) {
+/**
+ * swapInDirection: used to determine the direction of the swap
+ * Eg: RAY_SOL_LP_V4_POOL_KEY is using SOL as quote token, RAY as base token
+ * If the swapInDirection is true, currencyIn is RAY and currencyOut is SOL
+ * vice versa
+ */
+export async function calcAmountOut(connection: Connection, poolKeys: LiquidityPoolKeys, rawAmountIn: number, swapInDirection: boolean) {
   const poolInfo = await Liquidity.fetchInfo({ connection, poolKeys });
-  // the pool is RAY-SOL; quote = SOL; base = RAY
-  const currencyIn = new Token(poolKeys.quoteMint, poolInfo.quoteDecimals);
+  let currencyInMint = poolKeys.baseMint;
+  let currencyInDecimals = poolInfo.baseDecimals;
+  let currencyOutMint = poolKeys.quoteMint;
+  let currencyOutDecimals = poolInfo.quoteDecimals;
+
+  if (!swapInDirection) {
+    currencyInMint = poolKeys.quoteMint;
+    currencyInDecimals = poolInfo.quoteDecimals;
+    currencyOutMint = poolKeys.baseMint;
+    currencyOutDecimals = poolInfo.baseDecimals;
+  }
+
+  const currencyIn = new Token(currencyInMint, currencyInDecimals);
   const amountIn = new TokenAmount(currencyIn, rawAmountIn, false);
-  const currencyOut = new Token(poolKeys.baseMint, poolInfo.baseDecimals);
+  const currencyOut = new Token(currencyOutMint, currencyOutDecimals);
   const slippage = new Percent(5, 100); // 5% slippage
 
   const {

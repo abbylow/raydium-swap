@@ -8,7 +8,7 @@ import React, {
 import { useConnection, useWallet } from '@solana/wallet-adapter-react';
 import { LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js'
 import {
-  Liquidity, 
+  Liquidity,
   LiquidityPoolKeys,
   jsonInfo2PoolKeys,
   LiquidityPoolJsonInfo,
@@ -40,8 +40,10 @@ const Main: FC = () => {
   const [alertType, setAlertType] = useState<string>('danger');
   const [alertShow, setAlertShow] = useState<boolean>(false);
 
-  const [input, setInput] = useState('0');
-  const [output, setOutput] = useState('0');
+  const [input, setInput] = useState<string>('0');
+  const [output, setOutput] = useState<string>('0');
+
+  const [swapInDirection, setSwapInDirection] = useState<boolean>(false); // IN: RAY to SOL; OUT: SOL to RAY
 
   useEffect(() => {
     const getAccountInfo = async () => {
@@ -53,13 +55,13 @@ const Main: FC = () => {
         setTokenAccounts(tokenAccs);
 
         let rayTokenAddress: PublicKey;
-        tokenAccs.filter(acc => acc.accountInfo.mint.toBase58() === RAY_TOKEN_MINT).map(async(acc) => {
+        tokenAccs.filter(acc => acc.accountInfo.mint.toBase58() === RAY_TOKEN_MINT).map(async (acc) => {
           rayTokenAddress = acc.pubkey;
           const accBalance = await connection.getTokenAccountBalance(rayTokenAddress);
           const rayBal = accBalance.value.uiAmount || 0;
           setRayBalance(rayBal);
         });
-        
+
       }
     };
     const getPoolInfo = async () => {
@@ -78,13 +80,13 @@ const Main: FC = () => {
   useEffect(() => {
     const getInitialRate = async () => {
       if (raySolPoolKey && publicKey) {
-        const { executionPrice } = await calcAmountOut(connection, raySolPoolKey, 1);
+        const { executionPrice } = await calcAmountOut(connection, raySolPoolKey, 1, swapInDirection);
         const rate = executionPrice?.toFixed() || '0';
         setExchangeRate(rate);
       }
     }
     getInitialRate();
-  }, [publicKey, raySolPoolKey]);
+  }, [publicKey, raySolPoolKey, swapInDirection]);
 
   useEffect(() => {
     // update estimated output
@@ -104,7 +106,7 @@ const Main: FC = () => {
     const inputNumber = parseFloat(input);
     if (raySolPoolKey && publicKey) {
       try {
-        const { amountIn, minAmountOut } = await calcAmountOut(connection, raySolPoolKey, inputNumber);
+        const { amountIn, minAmountOut } = await calcAmountOut(connection, raySolPoolKey, inputNumber, swapInDirection);
 
         const { transaction, signers } = await Liquidity.makeSwapTransaction({
           connection,
@@ -135,7 +137,12 @@ const Main: FC = () => {
         setAlertShow(true);
       }
     }
-  }
+  };
+
+  const handleSwitchDirection: MouseEventHandler<HTMLButtonElement> = () => {
+    const newDirection = !swapInDirection;
+    setSwapInDirection(newDirection);
+  };
 
   return (
     <div className="d-flex justify-content-center mx-3">
@@ -149,7 +156,7 @@ const Main: FC = () => {
                     <b>Input</b>
                   </label>
                   <span className="float-end text-muted">
-                    {`Balance: ${solBalance.toFixed(9)} SOL`}
+                    {`Balance: ${!swapInDirection ? solBalance.toFixed(9) : rayBalance.toFixed(6)} ${!swapInDirection ? 'SOL' : 'RAY'}`}
                   </span>
                 </div>
                 <div className="input-group mb-4">
@@ -161,15 +168,21 @@ const Main: FC = () => {
                   />
 
                   <div className="input-group-text">
-                    <img className="mx-2" src={SOL_IMG} height='32' alt="SOL" />
-                    SOL
+                    <img className="mx-2" src={!swapInDirection ? SOL_IMG : RAY_IMG} height='32' alt='tokenIn' />
+                    {!swapInDirection ? 'SOL' : 'RAY'}
                   </div>
-
                 </div>
+
+                <div className="d-flex justify-content-center my-2">
+                  <button type="button" className="btn btn-primary" onClick={handleSwitchDirection}>
+                    <i className="bi bi-arrow-down-up"></i>
+                  </button>
+                </div>
+
                 <div>
                   <label className="float-start"><b>Estimated Output</b></label>
                   <span className="float-end text-muted">
-                    {`Balance: ${rayBalance.toFixed(6)}`} RAY
+                    {`Balance: ${!swapInDirection ? rayBalance.toFixed(6) : solBalance.toFixed(9)} ${!swapInDirection ? 'RAY' : 'SOL'}`}
                   </span>
                 </div>
                 <div className="input-group mb-2">
@@ -181,7 +194,7 @@ const Main: FC = () => {
                   />
 
                   <div className="input-group-text">
-                    <img className="mx-2" src={RAY_IMG} height='32' alt="RAY" />
+                    <img className="mx-2" src={!swapInDirection ? RAY_IMG : SOL_IMG} height='32' alt='tokenOut' />
                     RAY
                   </div>
 
@@ -189,7 +202,7 @@ const Main: FC = () => {
                 <div className="mb-5">
                   <span className="float-start text-muted">Exchange Rate (not real time)</span>
                   <span className="float-end text-muted">
-                    {`1 SOL = ${exchangeRate} RAY`}
+                    {`1 ${!swapInDirection ? 'SOL' : 'RAY'} = ${exchangeRate} ${!swapInDirection ? 'RAY' : 'SOL'}`}
                   </span>
                 </div>
                 <div className="d-grid gap-2">
@@ -197,7 +210,7 @@ const Main: FC = () => {
                     className="btn btn-primary btn-lg"
                     type="button"
                     onClick={handleSwap}
-                    disabled={!publicKey || !raySolPoolKey || parseFloat(input) < 0 || parseFloat(input) > solBalance}
+                    disabled={!publicKey || !raySolPoolKey || parseFloat(input) <= 0 || parseFloat(input) > (!swapInDirection ? solBalance : rayBalance)}
                   >
                     SWAP
                   </button>
